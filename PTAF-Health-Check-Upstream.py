@@ -21,25 +21,30 @@ logger = logging.getLogger()
 
 logger.info("Start Script")
 
-
-# В идеале надо будет сделать скрипт в который ты указываешь IP WAF 
 # Далее он загружает список upstreams ты выбираешь для какого написать healthcheck
 # Вводишь параметры проверки пути, интервалы
-# данный скрипт на выходе генерирует маленький скрипт который ты добавляешь в крон, он в случае чего потущит недоступный фронт
+# Данный скрипт должен запускаться на PTAF по крону
 # продумать логирование в файл, и отправку с SIEM Для анализа.
-#1. создавать бекап конфига перед изменением
-#
+#создавать бекап конфига перед изменением
+#Добавить заголовок host
 
-# Создание папки по дате (сегодня)
+
+
+# Нужно уйти от этой переменной.
 now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
 
-#Указываем путь с конфигом
+#Указываем путь куда класть конфиг
 path = '/Users/USER/Documents/PTAF_HealthCheck' 
 #Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
-id_upstream = "62b4697e95f57367fa9c25ad"
+id_upstreams = "62b4697e95f57367fa9c25ad"
 #Указываем путь для проверки
 healthcheck_path = '/'
 
+#IP адрес mgmt интерфейса PTAF
+ip_mgmt ="192.168.56.102"
+
+#Указываем upstream_protocol http:// или https:// нужно глянуть какой параметр указан в сервисе, возможно стоит начинать проверку с сервиса.
+upstream_protocol = "http://"
 
 #Создание директории
 try:
@@ -61,13 +66,13 @@ list_upstream = str(path) + 'config_upstream'  + '.json'
 HealthCheck = {}
 
 
-#Задаем переменную с URL по которому 
-url_upstreams = "https://192.168.56.102:8443/api/waf/v2/upstreams" + '/' + id_upstream
+#Задаем переменную с URL по которому выгружаем конфиг конкретного upstreams
+url_upstreams = "https://"+ ip_mgmt + ":8443/api/waf/v2/upstreams" + '/' + id_upstreams
 
 #Указываем заголовки
-headers_ptaf = {'Authorization': 'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42'}
-headers_contentType = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
-headers_upstream = {}
+headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
+
+headers_health_check = {}
 
 #Запрашиваем список Upstreams
 #v1.9.3 добавил лог ошибок при недоступности mgmt
@@ -89,11 +94,6 @@ except urllib3.exceptions.ConnectTimeoutError as error:
 except requests.exceptions.ConnectTimeout as error:
     print(now,error)
             #HealthCheck.status_code = 502
-
-
-    
-#Если первый апстрим не пройдет проверку, нужно это заполнить, исправил проверяя предварительно доступность порта.
-#HealthCheck = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
 
 print(now + ' запрашиваем список upstream | response code ' ,response_upstream.status_code)
 
@@ -142,25 +142,21 @@ for n in JSON_data['addresses']:
         
         #Генерируем URL для проверки
         #Есть проблемы если указан порт не стандартный, нужно указывать из Service. Большая доработка. Если перепутаны протоколы, сыпет ошибками когда на hhttp ломишься по https, и тому подобное.
-        
-        if JSON_data["backends"][count]["port"] == 80:
-            protocol = 'http://'
-            url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+        #В настройках сервиса указывается       "upstream_protocol": "http",
+        if JSON_data["backends"][count]["port"] == 80:            
+            url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+        #Вообще это дичь врядли кто то будет указывать upstream protocol https и отправлять на http, лучше отбить как missconfiguration
         elif JSON_data["backends"][count]["port"] == 443:
-            protocol = 'https://'
-            url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
-        elif JSON_data["backends"][count]["port"] == 8080:
-            protocol = 'http://'
-            url_healthcheck = protocol + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
+            url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+        #Если порт не 80 или 443 то добавлять его после host
         else:
-            protocol = 'https://'
-            url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
+            url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
     
         print(now ,  'Получили URL после условий ' , url_healthcheck )
         payload_healthcheck={}
 
         try:
-            HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_upstream, data=payload_healthcheck, timeout=1 ,  verify=False)
+            HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_health_check, data=payload_healthcheck, timeout=1 ,  verify=False)
             print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
         #except TimeoutError as error:
          #   print(now,error)
@@ -186,7 +182,7 @@ for n in JSON_data['addresses']:
             #Нужно добавит если статус 200 и включен, ничего не делать, иначе включить Upstream_Down
             JSON_data["backends"][count]["down"] = 'False'
             #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
-            #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+            #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
             print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
             count =  count + 1
             upstream_status = upstream_status + 1
@@ -197,7 +193,7 @@ for n in JSON_data['addresses']:
             JSON_data["backends"][count]["down"] = 'True'
             print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
             #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
-            #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+            #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
             #print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
             count =  count + 1
             print(now , 'Доступных Апстримов:', upstream_status)
@@ -226,7 +222,7 @@ payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
 
 if upstream_status >= 1:
     
-    Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+    Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
     if  Upstream_Down.status_code == 200:
         print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
         resp_code = str(Upstream_Down.content)
