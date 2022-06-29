@@ -38,7 +38,7 @@ path = '/Users/USER/Documents/PTAF_HealthCheck'
 #Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
 id_upstream = "62b4697e95f57367fa9c25ad"
 #Указываем путь для проверки
-healthcheck_path = '/lol'
+healthcheck_path = '/'
 
 
 #Создание директории
@@ -70,10 +70,25 @@ headers_contentType = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadT
 headers_upstream = {}
 
 #Запрашиваем список Upstreams
+#v1.9.3 добавил лог ошибок при недоступности mgmt
 file_upstream=open( str(list_upstream) ,"wb")
 payload_upstream={}
-response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
-
+try:
+    response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
+except TimeoutError as error:
+    print(now,error)
+except urllib3.exceptions.ConnectTimeoutError as error:
+    print(now,error)
+            #HealthCheck.status_code = 502
+except urllib3.exceptions.MaxRetryError as error:
+    print(now,error)
+            #HealthCheck.status_code = 502
+except urllib3.exceptions.ConnectTimeoutError as error:
+    print(now,error)
+            #HealthCheck.status_code = 502
+except requests.exceptions.ConnectTimeout as error:
+    print(now,error)
+            #HealthCheck.status_code = 502
 
 
     
