@@ -12,7 +12,7 @@ import os
 
 
 # Создание папки по дате (сегодня)
-now = datetime.datetime.now().strftime('%d-%m-%y')
+now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
 path = '/Users/USER/Documents/PTAF_HealthCheck' 
 
 #Создание директории
@@ -27,7 +27,7 @@ else:
 urllib3.disable_warnings()
 
 # Создаем переменную с именем файла в который будем записывать upstreams
-list_upstream = str(path) + 'config_upstream' + str(now) + '.json'
+list_upstream = str(path) + 'config_upstream'  + '.json'
 
 #Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
 id_upstream = "62b4697e95f57367fa9c25ad"
@@ -90,34 +90,33 @@ for n in JSON_data['addresses']:
         HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_upstream, data=payload_healthcheck, timeout=1 ,  verify=False)
         #print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
     except TimeoutError as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
     except urllib3.exceptions.ConnectTimeoutError as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
     except urllib3.exceptions.MaxRetryError as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
     except urllib3.exceptions.ConnectTimeoutError as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
     except requests.exceptions.ConnectTimeout as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
     except AttributeError as error:
-        print(error)
+        print(now,error)
         HealthCheck.status_code = 502
         
     #print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))    
 
     if  HealthCheck.status_code == 200:
+        print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
         #Нужно добавит если статус 200 и включен, ничего не делать, иначе включить Upstream
         JSON_data["backends"][count]["down"] = 'False'
-        print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
-        payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
-        Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+        #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
+        #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
         print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
-        
         count =  count + 1
 
     else :
@@ -125,10 +124,26 @@ for n in JSON_data['addresses']:
             print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
             JSON_data["backends"][count]["down"] = 'True'
             print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
-            payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
-            Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
-            print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
+            #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
+            #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+            #print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
             count =  count + 1
+
+payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
+Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+if  Upstream_Down.status_code == 200:
+    print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
+    resp_code = str(Upstream_Down.content)
+    print(now , 'ответ от WAF:' + resp_code )
+
+    #print(now , 'ответ \n от \n WAF:' , end="\n")
+
+    
+elif Upstream_Down.status_code == 422:
+    print(now , 'Настройки Не применены код ответа от WAF:' + str(Upstream_Down.status_code) )
+    print(now , 'ответ от WAF:' + str(Upstream_Down.content) )    
 
 #print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
 #print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
+
+input("prompt: ")
