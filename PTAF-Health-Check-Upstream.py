@@ -4,17 +4,42 @@ import urllib3
 import json
 import os
 import socket
+import logging
+
+#Creating and Configuring Logger
+
+Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
+
+logging.basicConfig(filename = "logfile.log",
+                    filemode = "w",
+                    format = Log_Format, 
+                    level = logging.DEBUG)
+
+logger = logging.getLogger()
+
+#Testing our Logger
+
+logger.info("Start Script")
+
 
 # В идеале надо будет сделать скрипт в который ты указываешь IP WAF 
 # Далее он загружает список upstreams ты выбираешь для какого написать healthcheck
 # Вводишь параметры проверки пути, интервалы
 # данный скрипт на выходе генерирует маленький скрипт который ты добавляешь в крон, он в случае чего потущит недоступный фронт
 # продумать логирование в файл, и отправку с SIEM Для анализа.
-
+#1. создавать бекап конфига перед изменением
+#
 
 # Создание папки по дате (сегодня)
 now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
+
+#Указываем путь с конфигом
 path = '/Users/USER/Documents/PTAF_HealthCheck' 
+#Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
+id_upstream = "62b4697e95f57367fa9c25ad"
+#Указываем путь для проверки
+healthcheck_path = '/lol'
+
 
 #Создание директории
 try:
@@ -27,15 +52,15 @@ else:
 # Отключить warning из-за SSL
 urllib3.disable_warnings()
 
+
 # Создаем переменную с именем файла в который будем записывать upstreams
 list_upstream = str(path) + 'config_upstream'  + '.json'
 
-#Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
-id_upstream = "62b4697e95f57367fa9c25ad"
 
 #HealthCheck ={}
 HealthCheck = {}
-healthcheck_path = '/lol'
+
+
 #Задаем переменную с URL по которому 
 url_upstreams = "https://192.168.56.102:8443/api/waf/v2/upstreams" + '/' + id_upstream
 
@@ -48,9 +73,15 @@ headers_upstream = {}
 file_upstream=open( str(list_upstream) ,"wb")
 payload_upstream={}
 response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
-#Если первый апстрим не пройдет проверку, нужно это заполнить
-HealthCheck = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
+
+
+
+    
+#Если первый апстрим не пройдет проверку, нужно это заполнить, исправил проверяя предварительно доступность порта.
+#HealthCheck = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
+
 print(now + ' запрашиваем список upstream | response code ' ,response_upstream.status_code)
+
 
 #print(now , response_upstream.content , sep=' ' ,end='\n' , flush=False)
 file_upstream.write(response_upstream.content)
@@ -69,10 +100,13 @@ with open( str(list_upstream), encoding = 'UTF-8') as file_upstream:
 #print(now + ' JSON_data[backends][1] ' ,JSON_data["backends"][1] )
 #print(now + ' JSON_data[backends][1][address] ' ,JSON_data["backends"][1]["address"] )
 
+#порядковый номер апстрима в словаре
 count = 0
+
 print(now + ' JSON с Апстримами  ' ,JSON_data["addresses"] )
 
-#Переменная для проверки всех апстримов.
+#logger.info(now + ' JSON с Апстримами  ' ,JSON_data["addresses"] )
+#Количество включенных апстримов, обнуляем в начале цикла
 upstream_status = 0
 
 #Запускаем цикл проверки 
@@ -89,7 +123,7 @@ for n in JSON_data['addresses']:
     result = sock.connect_ex((JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"]))
 #Если порт открыт, то переходим к проверке http
     if result == 0:
-        print (now ,"Port is open")
+        print (now ,JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"],"Port is Open")
         
         #Генерируем URL для проверки
         if JSON_data["backends"][count]["port"] == 80:
@@ -108,20 +142,20 @@ for n in JSON_data['addresses']:
         try:
             HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_upstream, data=payload_healthcheck, timeout=1 ,  verify=False)
             print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
-        except TimeoutError as error:
-            print(now,error)
+        #except TimeoutError as error:
+         #   print(now,error)
             #HealthCheck.status_code = 502
-        except urllib3.exceptions.ConnectTimeoutError as error:
-            print(now,error)
+        #except urllib3.exceptions.ConnectTimeoutError as error:
+         #   print(now,error)
             #HealthCheck.status_code = 502
-        except urllib3.exceptions.MaxRetryError as error:
-            print(now,error)
+        #except urllib3.exceptions.MaxRetryError as error:
+         #   print(now,error)
             #HealthCheck.status_code = 502
-        except urllib3.exceptions.ConnectTimeoutError as error:
-            print(now,error)
+        #except urllib3.exceptions.ConnectTimeoutError as error:
+         #   print(now,error)
             #HealthCheck.status_code = 502
-        except requests.exceptions.ConnectTimeout as error:
-            print(now,error)
+        #except requests.exceptions.ConnectTimeout as error:
+         #   print(now,error)
             #HealthCheck.status_code = 502
         except AttributeError as error:
             print(now,error)
@@ -181,10 +215,12 @@ if upstream_status >= 1:
     #print(now , 'ответ \n от \n WAF:' , end="\n")
 
     
-    elif Upstream_Down.status_code == 422:
+    #elif Upstream_Down.status_code == 422:
+    else:
         print(now , 'Настройки не применены , должен быть хотя бы один включенный Upstream' )
         print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) )    
-
+else:
+    print(now, 'Нет доступных Апстримов, настройки не применены')
 #print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
 #print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
 
