@@ -141,12 +141,17 @@ for n in JSON_data['addresses']:
         print (now ,JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"],"Port is Open")
         
         #Генерируем URL для проверки
+        #Есть проблемы если указан порт не стандартный, нужно указывать из Service. Большая доработка. Если перепутаны протоколы, сыпет ошибками когда на hhttp ломишься по https, и тому подобное.
+        
         if JSON_data["backends"][count]["port"] == 80:
             protocol = 'http://'
             url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
         elif JSON_data["backends"][count]["port"] == 443:
             protocol = 'https://'
             url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+        elif JSON_data["backends"][count]["port"] == 8080:
+            protocol = 'http://'
+            url_healthcheck = protocol + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
         else:
             protocol = 'https://'
             url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
