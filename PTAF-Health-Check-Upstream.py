@@ -39,6 +39,7 @@ path = '/Users/USER/Documents/PTAF_HealthCheck'
 id_upstreams = "62b4697e95f57367fa9c25ad"
 #Указываем путь для проверки
 healthcheck_path = '/'
+healthcheck_host = "multilidae.me"
 
 #IP адрес mgmt интерфейса PTAF
 ip_mgmt ="192.168.56.102"
@@ -72,7 +73,7 @@ url_upstreams = "https://"+ ip_mgmt + ":8443/api/waf/v2/upstreams" + '/' + id_up
 #Указываем заголовки
 headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
 
-headers_health_check = {}
+headers_health_check = {'Host':healthcheck_host}
 
 #Запрашиваем список Upstreams
 #v1.9.3 добавил лог ошибок при недоступности mgmt
