@@ -32,7 +32,8 @@ list_upstream = str(path) + 'config_upstream' + str(now) + '.json'
 #Тут указываем ID проверяемого upstream, лучше предоставить выбор из выгрузки.
 id_upstream = "62b4697e95f57367fa9c25ad"
 
-
+HealthCheck ={}
+HealthCheck = {}
 healthcheck_path = '/lol'
 #Задаем переменную с URL по которому 
 url_upstreams = "https://192.168.56.102:8443/api/waf/v2/upstreams" + '/' + id_upstream
@@ -46,6 +47,8 @@ headers_upstream = {}
 file_upstream=open( str(list_upstream) ,"wb")
 payload_upstream={}
 response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
+#Если первый апстрим не пройдет проверку, нужно это заполнить
+HealthCheck = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
 print(now + ' запрашиваем список upstream | response code ' ,response_upstream.status_code)
 
 #print(now , response_upstream.content , sep=' ' ,end='\n' , flush=False)
@@ -67,58 +70,65 @@ with open( str(list_upstream), encoding = 'UTF-8') as file_upstream:
 
 count = 0 
 for n in JSON_data['addresses']:
-    #print(now + ' n ' ,n )
+    print(now + ' JSON с Апстримами  ' ,JSON_data["addresses"] )
+    print(now + ' Проверка Апстрима:' ,JSON_data["backends"][count]["address"])
+    print(now + ' Порт Апстрима:' ,JSON_data["backends"][count]["port"])
+
+    if JSON_data["backends"][count]["port"] == 80:
+        protocol = 'http://'
+        url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+    elif JSON_data["backends"][count]["port"] == 443:
+        protocol = 'https://'
+        url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
+    else:
+        protocol = 'https://'
+        url_healthcheck = protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
     
-    #print(now + ' count ' ,count )
-
-    print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
-    print(now + ' JSON_data[backends] ' ,JSON_data["backends"][count]["address"] )
-
-    #now_name = str(path) + n["address"] + '.json'
-    #file_upstream=open( str(now_name),"wb")
-    #payload_upstream={}
-    #response_upstream = requests.request("GET", url_upstreams, headers=headers, data=payload_upstream, verify=False)
-    #print(now + ' ', upstream_conf)
-    #file_upstream.write(response_upstream.content)
-    #file_upstream.close()
-    #print(now + ' Создан: '+ now_name)
-    #Указываем URL HealthCheck
-    #url_healthcheck = 'https://' + n['address'] + ':'+ n['port'] + healthcheck_path
-    url_healthcheck = 'http://' + str(JSON_data["backends"][count]["address"])+ healthcheck_path
-    #url_healthcheck = 'http://localhost'
-    #print(now + ' url_healthcheck ' , url_healthcheck)
+    print(now ,  'Получили URL после условий ' , url_healthcheck )
     payload_healthcheck={}
-    HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_upstream, data=payload_healthcheck, timeout=1 ,  verify=False)
-    print(now ,  ' url_healthcheck ' , url_healthcheck , ' healthceck status code ' + str(HealthCheck.status_code))
+    try:
+        HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_upstream, data=payload_healthcheck, timeout=1 ,  verify=False)
+        #print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
+    except TimeoutError as error:
+        print(error)
+        HealthCheck.status_code = 502
+    except urllib3.exceptions.ConnectTimeoutError as error:
+        print(error)
+        HealthCheck.status_code = 502
+    except urllib3.exceptions.MaxRetryError as error:
+        print(error)
+        HealthCheck.status_code = 502
+    except urllib3.exceptions.ConnectTimeoutError as error:
+        print(error)
+        HealthCheck.status_code = 502
+    except requests.exceptions.ConnectTimeout as error:
+        print(error)
+        HealthCheck.status_code = 502
+    except AttributeError as error:
+        print(error)
+        HealthCheck.status_code = 502
+        
+    #print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))    
+
     if  HealthCheck.status_code == 200:
-        print(now + ' healthceck status OK ' + str(HealthCheck.status_code))
+        #Нужно добавит если статус 200 и включен, ничего не делать, иначе включить Upstream
+        JSON_data["backends"][count]["down"] = 'False'
+        print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
+        payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
+        Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+        print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
+        
         count =  count + 1
 
     else :
-
-
-            #print(now + ' JSON_data[backends][' + str(count) + '] ' ,JSON_data["backends"][count] )
-            print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
-            print(now + ' JSON_data[backends][' + str(count) + '][down] ' ,JSON_data["backends"][count]["down"] )
+            #print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
+            print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
             JSON_data["backends"][count]["down"] = 'True'
-            print(now + ' JSON_data[backends][' + str(count) + '][down] ' ,JSON_data["backends"][count]["down"] )
-            #payload_upstream = '{"backends": [ {"address": "10.10.10.30", "backup": false, "down": false, "max_fails": 2, "port": 443, "weight": 2}]}'
-            #downstatus=input('введи true или false')
-            Test_payload = '{"backends": [{"address": "192.168.88.29", "backup": false, "down": "True", "max_fails": 0, "port": 80, "weight": 1}, {"address": "192.168.88.30", "backup": false, "down": false, "max_fails": 1, "port": 80, "weight": 1}]}'
-            #print(now + ' Test_payload =' , Test_payload)
+            print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
             payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
-            #payload_upstream = str(JSON_data["backends"])
-            #print(now + ' payload_upstream ' + str(payload_upstream))
-
             Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
-            print(now + ' Upstream_Down ' + str(Upstream_Down.status_code) )
-            #print(now + ' Upstream_Down ' + str(Upstream_Down.status_code),  str(Upstream_Down.content) , )
-            #Upstream_Down_1 = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=Test_payload, verify=False)
-            #print(now + ' Upstream_Down_1' + str(Upstream_Down_1.status_code),  str(Upstream_Down_1.content) , )
-            #e_upstream     = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
-            #print(now + ' Upstream_Down ' + str(Upstream_Down.status_code),  str(Upstream_Down.content) , )
-            #print(now + ' Изменить значение Upstream ' + str(Upstream_Down))
+            print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
             count =  count + 1
 
-print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
-print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
+#print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
+#print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
