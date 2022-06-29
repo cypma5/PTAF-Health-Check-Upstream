@@ -71,6 +71,11 @@ with open( str(list_upstream), encoding = 'UTF-8') as file_upstream:
 
 count = 0
 print(now + ' JSON с Апстримами  ' ,JSON_data["addresses"] )
+
+#Переменная для проверки всех апстримов.
+upstream_status = 0
+
+#Запускаем цикл проверки 
 for n in JSON_data['addresses']:
 
     print(now + ' Проверка Апстрима:' ,JSON_data["backends"][count]["address"])
@@ -80,7 +85,9 @@ for n in JSON_data['addresses']:
 
 #Проверка доступности порта
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(3.0)
     result = sock.connect_ex((JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"]))
+#Если порт открыт, то переходим к проверке http
     if result == 0:
         print (now ,"Port is open")
         
@@ -128,7 +135,8 @@ for n in JSON_data['addresses']:
             #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
             print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
             count =  count + 1
-
+            upstream_status = upstream_status + 1
+            print(now , 'Доступных Апстримов:', upstream_status)
         else :
             #print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
             print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
@@ -138,17 +146,18 @@ for n in JSON_data['addresses']:
             #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
             #print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
             count =  count + 1
-
+            print(now , 'Доступных Апстримов:', upstream_status)
 
 
 
         
     else:
-        print (now ,"Port is not open")
+        print (now ,"Port closed")
         print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
         JSON_data["backends"][count]["down"] = 'True'
         print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
         count =  count + 1
+        print(now , 'Доступных Апстримов:', upstream_status)
         
     sock.close()
 
@@ -160,18 +169,21 @@ for n in JSON_data['addresses']:
     
 payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
 
-Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
-if  Upstream_Down.status_code == 200:
-    print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
-    resp_code = str(Upstream_Down.content)
-    print(now , 'ответ от WAF:' + resp_code )
+
+if upstream_status >= 1:
+    
+    Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_contentType, data=payload_upstream, verify=False)
+    if  Upstream_Down.status_code == 200:
+        print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
+        resp_code = str(Upstream_Down.content)
+        print(now , 'ответ от WAF:' + resp_code )
 
     #print(now , 'ответ \n от \n WAF:' , end="\n")
 
     
-elif Upstream_Down.status_code == 422:
-    print(now , 'Настройки не применены , должен быть хотя бы один включенный Upstream:' )
-    print(now , 'ответ от WAF:'+ str(Upstream_Down.status_code) + str(Upstream_Down.content) )    
+    elif Upstream_Down.status_code == 422:
+        print(now , 'Настройки не применены , должен быть хотя бы один включенный Upstream' )
+        print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) )    
 
 #print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
 #print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
