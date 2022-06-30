@@ -95,7 +95,6 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
             
             print(now + ' запрашиваем список upstream | response code ' ,response_upstream.status_code)
             print('content' ,response_upstream.content)
-            #Если код ответа не 200, то 
             logger.info(" Код ответа " + str(response_upstream.status_code) )
             #print(now , response_upstream.content , sep=' ' ,end='\n' , flush=False)
             file_upstream.write(response_upstream.content)
@@ -123,7 +122,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                     #Если порт открыт, то переходим к проверке http
                     if result_upstream == 0: #Если порт открыт то
                         print (now ,JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"],"Port is Open")
-
+                        logging.info(str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open')
                         #Генерируем URL для проверки
                         #Есть проблемы если указан порт не стандартный, нужно указывать из Service. Большая доработка. Если перепутаны протоколы, сыпет ошибками когда на hhttp ломишься по https, и тому подобное.
                         #В настройках сервиса указывается       "upstream_protocol": "http",
@@ -136,7 +135,8 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                         else:
                             url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
 
-                        print(now ,  'Получили URL после условий ' , url_healthcheck )
+                        print(now ,  'Получили URL после условий ' , url_healthcheck)
+                        logging.info('Получили URL после условий ' + url_healthcheck)
                         payload_healthcheck={}
 
                         try:
@@ -144,27 +144,33 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_health_check, data=payload_healthcheck, timeout=1 ,  verify=False)
                             print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
                             print(now ,  'Проверяем URL ' ,  str(HealthCheck.content))
-
+                            logging.info('Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
                             if  HealthCheck.status_code == 200:
                                 #нужно добавить если статус 200 и включен, ничего не делать, иначе включить Upstream_Down
-                                print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )                            
+                                print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
+                                logging.info('Апстрим выключен?:' ,JSON_data["backends"][count]["down"])                            
                                 JSON_data["backends"][count]["down"] = 'False'
                                 #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'                            
                                 print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
+                                logging.info( 'Включили Апстрим', JSON_data["backends"][count]["address"])
                                 count =  count + 1
                                 upstream_status = upstream_status + 1
                                 print(now , 'Доступных Апстримов:', upstream_status)
+                                logging.info('Доступных Апстримов:', upstream_status)
 
                             else :
                                 #print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
                                 print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
+                                logging.info('Апстрим выключен?:' ,JSON_data["backends"][count]["down"])
                                 JSON_data["backends"][count]["down"] = 'True'
                                 print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
+                                logging.info('Меняем значение на:' ,JSON_data["backends"][count]["down"])
                                 #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
                                 #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
                                 #print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
                                 count =  count + 1
                                 print(now , 'Доступных Апстримов:', upstream_status)
+                                logging.info('Доступных Апстримов:', upstream_status)
                         #Ошибки при выполнении хелсчека
                         except TimeoutError as error1:
                             print(now,'1',error1)
@@ -193,34 +199,45 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             logging.critical('Check variable upstream_protocol Отправка https трафика на порт ожидающий http')
                     else: #Если порт закрыт то
                         print (now ,"Port closed")
+                        logging.error("Port closed")
                         print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
+                        logging.info('Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))
                         JSON_data["backends"][count]["down"] = 'True'
                         print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
+                        logging.info('Меняем значение на:' +JSON_data["backends"][count]["down"])
                         count =  count + 1
                         print(now , 'Доступных Апстримов:', upstream_status)
+                        logging.info('Доступных Апстримов:'+ str(upstream_status))
 
                     sock.close()   
                 if upstream_status >= 1:    #Если после проверок включенных апстримов >= 1 то
+                    logging.info('Доступных апстримов больше >= 1')
                     payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
                     Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
                     if  Upstream_Down.status_code == 200: 
                         print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
+                        logging.info('Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code))
                         resp_code = str(Upstream_Down.content)
                         print(now , 'ответ от WAF:' + resp_code )
+                        logging.info('ответ от WAF:' + resp_code)
 
                         #print(now , 'ответ \n от \n WAF:' , end="\n")
 
 
                     #elif Upstream_Down.status_code == 422:
                     else:
-                        print(now , 'Настройки не применены , должен быть хотя бы один включенный Upstream' )
-                        print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) )    
+                        print(now , 'Настройки не применены из за ошибки' )
+                        print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) ) 
+                        logging.error('Настройки не применены из за ошибки')  
+                        logging.error ('ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content))
                 else:    #Если после проверок включенных апстримов 0
                     print(now, 'Нет доступных Апстримов, настройки не применены')
+                    logging.info('Нет доступных Апстримов, настройки не применены')
         else: #код ответа при запросе апстримов не 200
-            print('код ответа при запросе апстримов не 200')
+            print('Проверь логин\пароль для подключения к mgmt')
             print('Код ответа: ',response_upstream.status_code)
             print(response_upstream.content)
+            logging.error('Проверь логин\пароль для подключения к mgmt','Код ответа: ',response_upstream.status_code,'Тело ответа:',response_upstream.content)
     except TimeoutError as error:
         print(now,error)
         logging.critical('error1-1')
