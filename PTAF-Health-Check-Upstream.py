@@ -93,7 +93,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
         response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
         print(now + ' запрашиваем список upstream | response code ' ,response_upstream.status_code)
         print('content' ,response_upstream.content)
-        
+        #Если код ответа не 200, то 
         logger.info(" Код ответа " + str(response_upstream.status_code) )
         #print(now , response_upstream.content , sep=' ' ,end='\n' , flush=False)
         file_upstream.write(response_upstream.content)
@@ -215,8 +215,6 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                     print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) )    
             else:    #Если после проверок включенных апстримов 0
                 print(now, 'Нет доступных Апстримов, настройки не применены')
-                #print(now + ' JSON_data[addresses] ' ,JSON_data["addresses"] )
-                #print(now + ' JSON_data[backends] ' ,JSON_data["backends"] )
     except TimeoutError as error:
         print(now,error)
         logging.critical('error1-1')
@@ -251,7 +249,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
 
 
 
-else:
+else:   #Порт mgmt недоступен 
     print('Порт MGMT закрыт, проверь в чем дело')
 
 
