@@ -1,5 +1,9 @@
 # PTAF-Health-Check-Upstream
 
+Для версии Python 3.9
+Для версии PTAF 3.7.3.1200
+Для равнозначных фронтов, без бекапов, и весов, работа с sticky не проверялась.
+
 #Указываем путь куда класть конфиг
 path = '/Users/USER/Documents/PTAF_HealthCheck' 
 
