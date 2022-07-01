@@ -22,14 +22,14 @@ logger = logging.getLogger()
 
 logger.info("________________________________Start Script________________________________")
 
-# Далее он загружает список upstreams ты выбираешь для какого написать healthcheck
-# Вводишь параметры проверки пути, интервалы
+
 # Данный скрипт должен запускаться на PTAF по крону
 # продумать логирование в файл, и отправку с SIEM Для анализа.
 #создавать бекап конфига перед изменением
 #Добавить заголовок host
-# проверять настройку протокола в сервисах.
+# проверять настройку протокола в сервисах
 #Менять конфиг только когда есть изменения в доступности апстримов
+# сравнивать содержимое ответа от апстрима
 
 # Нужно уйти от этой переменной.
 now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
@@ -152,7 +152,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                                 JSON_data["backends"][count]["down"] = 'False'
                                 #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'                            
                                 print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
-                                logging.info( 'Включили Апстрим ' + JSON_data["backends"][count]["address"])
+                                logging.info( 'Включили Апстрим ' + str(JSON_data["backends"][count]["address"]))
                                 count =  count + 1
                                 upstream_status = upstream_status + 1
                                 print(now , 'Доступных Апстримов:', upstream_status)
@@ -161,16 +161,16 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             else :
                                 #print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
                                 print(now ,'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
-                                logging.info('Апстрим выключен?:' ,JSON_data["backends"][count]["down"])
+                                logging.info('Апстрим выключен?: ' +JSON_data["backends"][count]["down"])
                                 JSON_data["backends"][count]["down"] = 'True'
                                 print(now , 'Меняем значение на:' ,JSON_data["backends"][count]["down"] )
-                                logging.info('Меняем значение на:' ,JSON_data["backends"][count]["down"])
+                                logging.info('Меняем значение на: ' +JSON_data["backends"][count]["down"])
                                 #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
                                 #Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_upstream, verify=False)
                                 #print(now , 'Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code) )
                                 count =  count + 1
                                 print(now , 'Доступных Апстримов:', upstream_status)
-                                logging.info('Доступных Апстримов:', upstream_status)
+                                logging.info('Доступных Апстримов: '+ upstream_status)
                         #Ошибки при выполнении хелсчека
                         except TimeoutError as error1:
                             print(now,'1',error1)
@@ -229,7 +229,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                         print(now , 'Настройки не применены из за ошибки' )
                         print(now , 'ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content) ) 
                         logging.error('Настройки не применены из за ошибки')  
-                        logging.error ('ответ от WAF:', str(Upstream_Down.status_code) , str(Upstream_Down.content))
+                        logging.error ('ответ от WAF:'+ str(Upstream_Down.status_code) +' '+ str(Upstream_Down.content))
                 else:    #Если после проверок включенных апстримов 0
                     print(now, 'Нет доступных Апстримов, настройки не применены')
                     logging.info('Нет доступных Апстримов, настройки не применены')
@@ -267,18 +267,8 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
         logging.critical('Ошибка в кредах, проверь связку логин + пароль')
         logging.critical(error)
         #HealthCheck.status_code = 502        
-
-
-
-
-
 else:   #Порт mgmt недоступен 
     print('Порт MGMT закрыт, проверь в чем дело')
-
-
-
-
-
 
 
 input("prompt: ")
