@@ -29,7 +29,7 @@ logger.info("________________________________Start Script_______________________
 #создавать бекап конфига перед изменением
 #Добавить заголовок host
 # проверять настройку протокола в сервисах.
-
+#Менять конфиг только когда есть изменения в доступности апстримов
 
 # Нужно уйти от этой переменной.
 now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
@@ -46,7 +46,7 @@ healthcheck_host = "example.com"
 ip_mgmt ="192.168.56.102"
 
 #Указываем upstream_protocol http:// или https:// нужно глянуть какой параметр указан в сервисе, возможно стоит начинать проверку с сервиса.
-upstream_protocol = "https://"
+upstream_protocol = "http://"
 
 #Создание директории
 logger.info("Создаём директорию")
@@ -144,19 +144,19 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             HealthCheck =  requests.request("GET", url_healthcheck, headers=headers_health_check, data=payload_healthcheck, timeout=1 ,  verify=False)
                             print(now ,  'Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
                             print(now ,  'Проверяем URL ' ,  str(HealthCheck.content))
-                            logging.info('Проверяем URL ' , url_healthcheck , ' Код HTTP ответа:' + str(HealthCheck.status_code))
+                            logging.info('Проверяем URL ' + url_healthcheck + ' Код HTTP ответа:' + str(HealthCheck.status_code))
                             if  HealthCheck.status_code == 200:
                                 #нужно добавить если статус 200 и включен, ничего не делать, иначе включить Upstream_Down
                                 print(now , 'Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
-                                logging.info('Апстрим выключен?:' ,JSON_data["backends"][count]["down"])                            
+                                logging.info('Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))                            
                                 JSON_data["backends"][count]["down"] = 'False'
                                 #payload_upstream = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'                            
                                 print(now , 'Включили Апстрим', JSON_data["backends"][count]["address"])
-                                logging.info( 'Включили Апстрим', JSON_data["backends"][count]["address"])
+                                logging.info( 'Включили Апстрим ' + JSON_data["backends"][count]["address"])
                                 count =  count + 1
                                 upstream_status = upstream_status + 1
                                 print(now , 'Доступных Апстримов:', upstream_status)
-                                logging.info('Доступных Апстримов:', upstream_status)
+                                logging.info('Доступных Апстримов: ' + str(upstream_status))
 
                             else :
                                 #print(now + ' JSON_data[backends][' + str(count) + '][address] ' ,JSON_data["backends"][count]["address"] )
