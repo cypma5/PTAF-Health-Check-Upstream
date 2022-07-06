@@ -14,7 +14,7 @@ logging.basicConfig(filename = "/var/log/ptaf-healthcheck.log",
                     filemode = "a", #Добавление строк в лог
                     #filemode = "w", #перезаписывать файл
                     format = Log_Format,
-		    level = logging.DEBUG) 
+                    level = logging.DEBUG) 
                     #level = logging.INFO)
 
 logger = logging.getLogger()
