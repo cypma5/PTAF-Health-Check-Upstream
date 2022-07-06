@@ -43,3 +43,7 @@ payload_upstream={}
 #Указываем заголовки для подключения к MGMT PTAF 
 
 headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
+
+
+#Добавляем задачу в крон - это раз в минуту, как чаще сделать пока не думал.
+*/1 * * * * python3.5 /home/pt/PTAF-Health-Check-Upstream/PTAF-Health-Check-Upstream.py
