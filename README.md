@@ -1,48 +1,27 @@
+# Мониторинг состояния ElasticSearch в PTAF с помощью Zabbix-Agent
 # PTAF-Health-Check-Upstream
-
-Для версии Python 3.9
-
-Для версии PTAF 3.7.3.1200
-
-Для равнозначных фронтов, без бекапов, и весов, работа с sticky не проверялась.
-
-#Указываем путь куда класть конфиг
-
-path = '/Users/USER/Documents/PTAF_HealthCheck' 
-
-#Тут указываем ID проверяемого upstream.
-
-id_upstreams = "62b4697e95f57367fa9c25ad"
+# Python3.X PTAF 3.7.3.1200
+# Для равнозначных фронтов, без бекапов, и весов, работа с sticky не проверялась.
 
 
-#Указываем путь для проверки
+# Настройка конфига 
+1. Путь куда выгружать JSON с параметрами `path = '/Some/Dirrectory'`
 
-healthcheck_path = '/'
+`id_upstreams = "62b4697e95f57367fa9c25ad"` - Нужно подставить значение своего апстрима.
 
+` healthcheck_path = '/'` -Указываем путь для проверки
 
-#Указываем значение которое будет передаваться в заголовке Host:
+`healthcheck_host = "example.com" `- Указываем значение которое будет передаваться в заголовке Host:
 
-healthcheck_host = "example.com"
-
-
-#IP адрес mgmt интерфейса PTAF
-
-ip_mgmt ="192.168.56.102"
-
-
-#Указываем upstream_protocol http:// или https:// нужно глянуть какой параметр указан в сервисе, возможно стоит начинать проверку с сервиса.
-
-upstream_protocol = "http://"
+`ip_mgmt ="192.168.56.102"` - IP адрес mgmt интерфейса PTAF
 
 
 
-#Полезная нагрузка для проверки апстрима ( для метода POST)
+`upstream_protocol = "http://"`  - Указываем upstream_protocol http:// или https:// 
 
-payload_upstream={}
+`payload_upstream={}` - (Не проверялось) Полезная нагрузка для проверки апстрима ( для метода POST)
 
-#Указываем заголовки для подключения к MGMT PTAF 
-
-headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
+`headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}` - Указываем заголовки для подключения к MGMT PTAF 
 
 
 #Добавляем задачу в крон - это раз в минуту, как чаще сделать пока не думал.
