@@ -1,5 +1,8 @@
-#v1.1.2
+#v1.1.3
 #Исправил logging на logger
+#Исправил 225 строку
+#Исправил exeption error17
+
 import requests
 import datetime
 import urllib3
@@ -7,8 +10,11 @@ import json
 import os
 import socket
 import logging
+import platform
 
 #Creating and Configuring Logger
+hostname = platform.node()
+print(hostname)
 
 Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
 
@@ -42,7 +48,8 @@ now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
 path = './' 
 
 #Настройка подключения к PTAF
-ip_mgmt ="192.168.56.102"
+
+ip_mgmt ="192.168.56.102"   #крашиться при неправильном параметре.
 id_upstreams = "62b4697e95f57367fa9c25ad"
 headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
 payload_ptaf={}
@@ -119,8 +126,8 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                     result_upstream = sock.connect_ex((JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"]))
                     #Если порт открыт, то переходим к проверке http
                     if result_upstream == 0: #Если порт открыт то
-                        logger.debug('Порт открыт, то переходим к проверке http')
-                        logger.info(str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open')
+                        logger.debug('UPSTREAM_NETWORK Порт открыт, то переходим к проверке http')
+                        logger.info('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open')
                         #Генерируем URL для проверки
                         #Есть проблемы если указан порт не стандартный, нужно указывать из Service. Большая доработка. Если перепутаны протоколы, сыпет ошибками когда на hhttp ломишься по https, и тому подобное.
                         #В настройках сервиса указывается       "upstream_protocol": "http",
@@ -180,7 +187,7 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             logger.exception(error004)
                         except requests.exceptions.ConnectTimeout as error005:
                             count =  count + 1                            
-                            logger.critical('HTTP_Health_check Check variable upstream_protocol Отправка https трафика на порт ожидающий http')
+                            logger.critical('HTTP_Health_check upstream_protocol Отправка https трафика на порт ожидающий http')
                             logger.exception(error005)
                         except AttributeError as error006:                            
                             logger.error('HTTP_Health_check проверь Headers которые отправляешь на апстрим ')
@@ -189,20 +196,20 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             logger.critical('HTTP_Health_check Check variable upstream_protocol Отправка https трафика на порт ожидающий http')
                             logger.exception(error008)
                     else: #Если порт закрыт то
-                        logger.debug('инче если порт апстима закрыт ')
-                        logger.warning(str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Closed')
+                        logger.debug('UPSTREAM_NETWORK если порт закрыт то ')
+                        logger.warning('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Closed')
                         if str(JSON_data["backends"][count]["down"]) == 'False' : # если был включен то выключить
-                            logger.debug(' порт апстрима закрыт но до проврки апстрим был включен')
-                            logger.info('Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))
+                            logger.debug('UPSTREAM_NETWORK порт апстрима закрыт но до проврки апстрим был включен')
+                            logger.info('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))
                             JSON_data["backends"][count]["down"] = 'True'
-                            logger.info('Меняем значение на:' +JSON_data["backends"][count]["down"])
+                            logger.info('UPSTREAM_NETWORK Меняем значение на:' +JSON_data["backends"][count]["down"])
                             upstream_changed = upstream_changed + 1
                             count =  count + 1
                             logger.info('Доступных Апстримов: '+ str(upstream_status))
                         else : #если был выключен то ничего не делаем
-                            logger.debug('порт апстрима закрыт и до проверки был выключен')
-                            logger.info('Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]) + ' Действие не требуется')
-                            logger.info('Доступных Апстримов: '+ str(upstream_status))
+                            logger.debug('UPSTREAM_NETWORK порт апстрима закрыт и до проверки был выключен')
+                            logger.info('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]) + ' Действие не требуется')
+                            logger.info('UPSTREAM_NETWORK Доступных Апстримов: '+ str(upstream_status))
                             count =  count + 1
                     sock.close()
                 if (upstream_status >= 1) and (upstream_changed >= 1) :    #Если после проверок включенных апстримов >= 1 и изменено больше одного апстрима то.
@@ -222,7 +229,8 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                 else:    #Если после проверок включенных апстримов 0
                     logger.critical('Нет доступных Апстримов, настройки не применены')
         else: #код ответа при запросе апстримов не 200
-            logger.error('Проверь headers_ptaf или логин\пароль для подключения к mgmt','Код ответа: ',response_upstream.status_code,'Тело ответа:',response_upstream.content)
+            logger.error('Проверь headers_ptaf или логин\пароль для подключения к mgmt '+'Код ответа: '+str(response_upstream.status_code))
+            logger.error(str(response_upstream.text))
     except TimeoutError as error011:
         logger.critical('PTAF_JSON TimeoutError')
         logger.exception(error011)
@@ -241,9 +249,9 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
     except KeyError as error016:
         logger.critical('PTAF_JSON Ошибка в кредах, проверь значение переменной headers_ptaf')
         logger.exception(error016)
-    except InsecureRequestWarning as error017:
-        logger.critical('PTAF_JSON Неудалось проверить сертификат?')
-        logger.exception(error017)
+#    except InsecureRequestWarning as error017:
+#        logger.critical('PTAF_JSON Неудалось проверить сертификат?')
+#        logger.exception(error017)
 
 
 else:   #Порт mgmt недоступен 
