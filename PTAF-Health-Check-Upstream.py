@@ -97,7 +97,7 @@ response_health_check = {}
 #Задаем переменную с URL по которому выгружаем конфиг конкретного upstreams
 url_upstreams = "https://"+ ip_mgmt + ":8443/api/waf/v2/upstreams" + '/' + id_upstreams
 # Создаем переменную с именем файла в который будем записывать upstreams
-list_upstream = str(path) + 'config_upstream' + str(id_upstreams)  + '.json'
+list_upstream = str(path) + '_config_upstream_' + str(id_upstreams)  + '.json'
 
 #Запрашиваем список Upstreams
 socket_mgmt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
