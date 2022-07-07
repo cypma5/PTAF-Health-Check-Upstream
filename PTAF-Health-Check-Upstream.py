@@ -1,7 +1,8 @@
-#v1.1.5
+#v1.1.6
 #Исправил logging на logging
 #Исправил 225 строку
 #Исправил exeption error17
+#Добавил в лог hostname
 
 import requests
 import datetime
@@ -23,7 +24,6 @@ console_out = logging.StreamHandler()
 hostname = platform.node()
 print(hostname)
 
-#Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
 Log_Format = "%(asctime)s [{}] [%(levelname)s] - %(message)s".format(socket.gethostname())
 
 logging.basicConfig(handlers=(file_log, console_out),
