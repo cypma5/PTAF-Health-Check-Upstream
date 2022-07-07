@@ -1,4 +1,4 @@
-#v1.1.4
+#v1.1.5
 #Исправил logging на logging
 #Исправил 225 строку
 #Исправил exeption error17
@@ -19,25 +19,16 @@ import platform
 file_log = logging.FileHandler('ptaf-healthcheck.log')
 console_out = logging.StreamHandler()
 
-logging.basicConfig(handlers=(file_log, console_out), 
-                    format='[%(asctime)s | %(levelname)s]: %(message)s', 
-                    datefmt='%m.%d.%Y %H:%M:%S',
-                    level=logging.INFO)
-
-logging.info('Info message??))')
-
-
-
-
-
 #Creating and Configuring logging
 hostname = platform.node()
 print(hostname)
 
-Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
+#Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
+Log_Format = "%(asctime)s [{}] [%(levelname)s] - %(message)s".format(socket.gethostname())
 
-logging.basicConfig(filename = "/var/log/ptaf-healthcheck.log",
-                    filemode = "a", #Добавление строк в лог
+logging.basicConfig(handlers=(file_log, console_out),
+                    #filename = "/var/log/ptaf-healthcheck.log",
+                    #filemode = "a", #Добавление строк в лог
                     #filemode = "w", #перезаписывать файл
                     format = Log_Format,
                     level = logging.DEBUG) 
