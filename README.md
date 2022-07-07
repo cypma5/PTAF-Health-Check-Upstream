@@ -40,6 +40,8 @@
 - `headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }` - заголовки передаваемые на апстрим при HealthCheck
 
 # Выполнение по рассписанию
+crontab
+
 */1 * * * * python3.5 /home/pt/PTAF-Health-Check-Upstream/PTAF-Health-Check-Upstream.py
 
 # Обработка логов
