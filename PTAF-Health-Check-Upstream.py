@@ -1,4 +1,5 @@
 #v1.2.0 
+#Добавление параметров из файла конфигурации
 
 import requests
 import datetime
@@ -9,6 +10,7 @@ import socket
 import logging
 import platform
 import traceback
+import configparser
 
 
 
@@ -54,22 +56,21 @@ logging.debug('ВКЛЮЧЕН РЕЖИМ ДЕБАГА')
 path = './' 
 
 #Настройка подключения к PTAF
+config = configparser.ConfigParser()
+config.read("config.ini")
+print(config["global"]["ip_mgmt"])
 
-ip_mgmt ="192.168.56.102"   #крашиться при неправильном параметре.
-id_upstreams = "62b4697e95f57367fa9c25ad"
-headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}
-payload_ptaf={}
-
+ip_mgmt = config["global"]["ip_mgmt"]
+payload_ptaf = config["global"]["payload_ptaf"]
+authorization_cred = config["global"]["authorization_cred"]
+headers_ptaf = {'Authorization': authorization_cred  , 'Content-Type':'application/json'}
 #Настройка HealthCheck
-healthcheck_path = '/'
-#healthcheck_path = '/health'
-healthcheck_host = "example.com"
-payload_healthcheck={}
+id_upstreams = config["upstream"]["id_upstreams"]
+healthcheck_path = config["upstream"]["healthcheck_path"]
+healthcheck_host = config["upstream"]["healthcheck_host"]
+payload_healthcheck = config["upstream"]["payload_healthcheck"]
+upstream_protocol = config["upstream"]["upstream_protocol"]
 headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }
-upstream_protocol = "http://"
-
-
-
 
 #Создание директории
 logging.debug("Создаём директорию")
