@@ -1,9 +1,10 @@
 #v1.2.1
 #Добавление параметров из файла конфигурации config.ini
 # переработал параметры
+# Поправил в логах версию
+# Нужно формат логов с перемеными сделать
 
 import requests
-import datetime
 import urllib3
 import json
 import os
@@ -68,7 +69,7 @@ healthcheck_host = config["upstream"]["healthcheck_host"]
 payload_healthcheck = config["upstream"]["payload_healthcheck"]
 upstream_protocol = config["upstream"]["upstream_protocol"]
 headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }
-
+test_mode = config["upstream"]["test_mode"]
 #Создание директории
 logging.debug("Создаём директорию")
 try:
@@ -205,7 +206,8 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                             logging.warning(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|false|false|Действие не требуется')
                             count =  count + 1
                     sock.close()
-                if (upstream_status >= 1) and (upstream_changed >= 1) :    #Если после проверок включенных апстримов >= 1 и изменено больше одного апстрима то.
+                #Добавляю тестовый режим    
+                if (upstream_status >= 1) and (upstream_changed >= 1) and (test_mode == False):    #Если после проверок включенных апстримов >= 1 и изменено больше одного апстрима то.
                     logging.warning(str(id_upstreams) + '|' + str(mgmt_ptaf) + 'Доступных апстримов:' + str(upstream_status) + ' Требуется изменить конфигурацию для:' + str(upstream_changed))
                     payload_ptaf = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
                     Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_ptaf, verify=False)
@@ -217,6 +219,10 @@ if result_mgmt == 0:    #Если порт mgmt открыт , то перехо
                     else:
                         logging.error(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+ str(Upstream_Down.status_code) +'|Настройки не применены из-за ошибки')
                         logging.debug('ответ от WAF:'+ str(Upstream_Down.content))
+                elif (upstream_status >= 1) and (upstream_changed >= 1) and (test_mode == True) : # есть доступные апстримы и нет изменений в конфиге Режим тестирования                 
+                    logging.warning(str(id_upstreams) + '|' + str(mgmt_ptaf) + 'Доступных апстримов:' + str(upstream_status) + ' Требуется изменить конфигурацию для:' + str(upstream_changed))
+                    logging.debug('Настройки не применены так как включен тестовый режим')
+                    logging.info(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+ 'Настройки не применены так как включен тестовый режим')
                 elif (upstream_status >= 1) and (upstream_changed == 0 ) : # есть доступные апстримы и нет изменений в конфиге                    
                     logging.info(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|200|Есть доступные апстримы и нет изменений в конфиге')
                     logging.debug('Апстримов доступно ' + str(upstream_status) + ' изменений нет')
