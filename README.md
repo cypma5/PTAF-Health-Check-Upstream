@@ -17,10 +17,10 @@
 
 1. Создать учетную запись на PTAF с правами на редактирование Upstreams can_edit
 2. Закодировать связку `login:password` в Base64
-3. В параметре `headers_ptaf` поменять значение `Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42` на своё
+3. В параметре `authorization_cred` поменять значение `Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42` на своё
 
 
-# Описание  переменных в конфиге
+# Описание  переменных в конфиге config.ini
 - Путь куда выгружать JSON с параметрами `path = './' `
 
 - `id_upstreams = "62b4697e95f57367fa9c25ad"` - Нужно подставить значение своего апстрима.
@@ -35,7 +35,8 @@
 
 - `payload_healthcheck={}` - (Не проверялось) Полезная нагрузка для проверки апстрима ( для метода POST)
 
-- `headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42' , 'Content-Type':'application/json'}` - Указываем заголовки для подключения к MGMT PTAF 
+
+- `authorization_cred = Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42` - указываем login:password в BASE64
 
 - `headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }` - заголовки передаваемые на апстрим при HealthCheck
 
