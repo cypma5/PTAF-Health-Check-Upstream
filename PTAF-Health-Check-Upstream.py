@@ -1,5 +1,6 @@
-#v1.2.0 
-#Добавление параметров из файла конфигурации
+#v1.2.1
+#Добавление параметров из файла конфигурации config.ini
+# переработал параметры
 
 import requests
 import datetime
@@ -12,10 +13,6 @@ import platform
 import traceback
 import configparser
 
-
-
-#import logging
-
 file_log = logging.FileHandler('ptaf-healthcheck.log')
 console_out = logging.StreamHandler()
 
@@ -23,7 +20,7 @@ console_out = logging.StreamHandler()
 hostname = platform.node()
 print(hostname)
 
-Log_Format = "%(asctime)s |{}|v1.1.9|%(levelname)s|%(message)s|".format(socket.gethostname())
+Log_Format = "%(asctime)s |{}|v1.2.1|%(levelname)s|%(message)s|".format(socket.gethostname())
 
 logging.basicConfig(handlers=(file_log, console_out),
                     #filename = "/var/log/ptaf-healthcheck.log",
