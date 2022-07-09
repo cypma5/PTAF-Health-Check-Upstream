@@ -1,8 +1,4 @@
-#v1.1.9 
-#Исправил logging на logging
-#Исправил 225 строку
-#Исправил exeption error17
-#Добавил в лог hostname
+#v1.2.0 
 
 import requests
 import datetime
