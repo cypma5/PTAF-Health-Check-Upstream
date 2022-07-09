@@ -1,7 +1,8 @@
-#v1.1.3
-#Исправил logging на logger
+#v1.1.9 
+#Исправил logging на logging
 #Исправил 225 строку
 #Исправил exeption error17
+#Добавил в лог hostname
 
 import requests
 import datetime
@@ -11,27 +12,36 @@ import os
 import socket
 import logging
 import platform
+import traceback
 
-#Creating and Configuring Logger
+
+
+#import logging
+
+file_log = logging.FileHandler('ptaf-healthcheck.log')
+console_out = logging.StreamHandler()
+
+#Creating and Configuring logging
 hostname = platform.node()
 print(hostname)
 
-Log_Format = " %(asctime)s [%(levelname)s] - %(message)s"
+Log_Format = "%(asctime)s |{}|v1.1.9|%(levelname)s|%(message)s|".format(socket.gethostname())
 
-logging.basicConfig(filename = "/var/log/ptaf-healthcheck.log",
-                    filemode = "a", #Добавление строк в лог
+logging.basicConfig(handlers=(file_log, console_out),
+                    #filename = "/var/log/ptaf-healthcheck.log",
+                    #filemode = "a", #Добавление строк в лог
                     #filemode = "w", #перезаписывать файл
                     format = Log_Format,
                     level = logging.DEBUG) 
                     #level = logging.INFO)
 
-logger = logging.getLogger()
+logging = logging.getLogger()
 
 
-#Testing our Logger
+#Testing our logging
 
-logger.info("________________________________Start Script________________________________")
-logger.debug('ВКЛЮЧЕН РЕЖИМ ДЕБАГА')
+logging.debug("________________________________Start Script________________________________")
+logging.debug('ВКЛЮЧЕН РЕЖИМ ДЕБАГА')
 
 # Данный скрипт должен запускаться на PTAF по крону
 # продумать логирование в файл, и отправку с SIEM Для анализа.
@@ -42,7 +52,7 @@ logger.debug('ВКЛЮЧЕН РЕЖИМ ДЕБАГА')
 # сравнивать содержимое ответа от апстрима
 
 # Нужно уйти от этой переменной.
-now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
+#now = datetime.datetime.now().strftime('%d-%m-%y %H:%M:%S')
 
 #Настройка Окружения
 path = './' 
@@ -55,7 +65,8 @@ headers_ptaf = {'Authorization':'Basic YXBpYzp4WUE3T2dQbDIwRXVpc3UyazRadTYxYm42'
 payload_ptaf={}
 
 #Настройка HealthCheck
-healthcheck_path = '/health'
+healthcheck_path = '/'
+#healthcheck_path = '/health'
 healthcheck_host = "example.com"
 payload_healthcheck={}
 headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }
@@ -65,14 +76,13 @@ upstream_protocol = "http://"
 
 
 #Создание директории
-logger.info("Создаём директорию")
+logging.debug("Создаём директорию")
 try:
     os.makedirs(path)
 except OSError:
-    print (" Создать директорию %s не удалось, возможно она уже создана" % path)
-    logger.debug('Создать директорию %s не удалось, возможно она уже создана')
+    logging.debug('Создать директорию %s не удалось, возможно она уже создана')
 else:
-    print (" Успешно создана директория %s " % path)
+    logging.debug(" Успешно создана директория %s " % path)
 
 # Отключить warning из-за SSL
 urllib3.disable_warnings()
@@ -88,7 +98,9 @@ response_health_check = {}
 #Задаем переменную с URL по которому выгружаем конфиг конкретного upstreams
 url_upstreams = "https://"+ ip_mgmt + ":8443/api/waf/v2/upstreams" + '/' + id_upstreams
 # Создаем переменную с именем файла в который будем записывать upstreams
-list_upstream = str(path) + 'config_upstream' + str(id_upstreams)  + '.json'
+list_upstream = str(path) + 'config_upstream_' + str(id_upstreams)  + '_ .json'
+
+mgmt_ptaf = ip_mgmt + ":8443"
 
 #Запрашиваем список Upstreams
 socket_mgmt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -97,162 +109,143 @@ socket_mgmt.settimeout(3.0)
 mgmt_adr = (ip_mgmt , 8443)
 try: 
     result_mgmt = socket_mgmt.connect_ex(mgmt_adr)
-except socket.gaierror as error:
-    print(error)
-    logger.critical('PTAF_NETWORK Указан некорректный IP адрес')
-    logger.exception(error)
+except :
+    logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|close|fall')
+    logging.exception(traceback.format_exc())
 
 if result_mgmt == 0:    #Если порт mgmt открыт , то переходим к загрузке JSON с апстримами
-    logger.debug("PTAF_NETWORK Порт mgmt открыт")
+    logging.debug("PTAF_NETWORK Порт mgmt открыт")
     file_upstream=open( str(list_upstream) ,"wb")
     try:    #Пробуем выгрузить апстримы в JSON
-        logger.debug('PTAF_JSON Пробуем выгрузить апстримы в JSON')
+        logging.debug('PTAF_JSON Пробуем выгрузить апстримы в JSON')
         response_upstream = requests.request("GET", url_upstreams, headers=headers_ptaf, data=payload_ptaf, verify=False)
         if response_upstream.status_code == 200:
-            print(' Код ответа от PTAF: ' ,response_upstream.status_code)
-            logger.info("PTAF_JSON Код ответа от PTAF: " + str(response_upstream.status_code) )
+            logging.info(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+str(response_upstream.status_code)+'|Получили JSON с Upstreams')
+            #logging.debug("PTAF_JSON Получен JSON код ответа: " + str(response_upstream.status_code) )
             file_upstream.write(response_upstream.content)
             file_upstream.close()
             #Открываем JSON 
             with open( str(list_upstream), encoding = 'UTF-8') as file_upstream:
-                logger.debug("PTAF_JSON Открываем JSON")
+                logging.debug("PTAF_JSON Открываем JSON")
                 JSON_data = json.load(file_upstream)
-                logger.debug('PTAF_JSON JSON с Апстримами  ' + str(JSON_data["addresses"]))
+                logging.debug('PTAF_JSON JSON с Апстримами ' + str(JSON_data["addresses"]))
                 for n in JSON_data['addresses']:    #Запускаем цикл проверки
-                    logger.info('Проверка Апстрима: '+ str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]))
-                    logger.debug('Проверка доступности порта')
+                    #logging.info(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|ok|Получили JSON с Upstreams')
+                    logging.debug('Проверка Апстрима: '+ str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +' Проверка доступности порта')
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.settimeout(3.0)
                     result_upstream = sock.connect_ex((JSON_data["backends"][count]["address"],JSON_data["backends"][count]["port"]))
                     #Если порт открыт, то переходим к проверке http
                     if result_upstream == 0: #Если порт открыт то
-                        logger.debug('UPSTREAM_NETWORK Порт открыт, то переходим к проверке http')
-                        logger.info('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open')
-                        #Генерируем URL для проверки
-                        #Есть проблемы если указан порт не стандартный, нужно указывать из Service. Большая доработка. Если перепутаны протоколы, сыпет ошибками когда на hhttp ломишься по https, и тому подобное.
-                        #В настройках сервиса указывается       "upstream_protocol": "http",
+                        logging.debug('UPSTREAM_NETWORK Порт открыт, переходим к проверке http')
+                        logging.debug('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open')
+                        #Генерируем URL для проверки, добавляем порт если необходимо.
                         if ((JSON_data["backends"][count]["port"] == 80) or (JSON_data["backends"][count]["port"] == 443)):            
                             url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+ healthcheck_path
                         else:
                             url_healthcheck = upstream_protocol + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) + healthcheck_path
-                        #print('Получили URL после условий ' , url_healthcheck)
-                        logger.debug('URL Для проверки доступности Апстрима ' + url_healthcheck)
+                        logging.debug('URL Для проверки доступности Апстрима ' + url_healthcheck)
                         try:
-                            logger.debug('Пробуем сделать хелчек')
+                            logging.debug('Пробуем сделать хелчек')
                             response_health_check =  requests.request("GET", url_healthcheck, headers=headers_health_check, data=payload_healthcheck, timeout=1 ,  verify=False)
-                            logger.info('Проверяем URL ' + url_healthcheck + ' Код HTTP ответа:' + str(response_health_check.status_code))
-                            #logger.debug(str(response_health_check.content))
+                            logging.debug('Проверяем URL ' + url_healthcheck + ' Код HTTP ответа:' + str(response_health_check.status_code))
                             if  (response_health_check.status_code == 200) and (JSON_data["backends"][count]["down"] == True): #Апстрим доступен, но был выключен                                
-                                #print('Апстрим выключен?:' ,JSON_data["backends"][count]["down"] )
-                                #logger.info(str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Open HTTP: OK')
-                                logger.debug('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]))                            
+                                logging.debug('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]))                            
                                 JSON_data["backends"][count]["down"] = 'False'                           
-                                #print('Включили Апстрим', JSON_data["backends"][count]["address"])
-                                logger.debug( 'Включили Апстрим ' + str(JSON_data["backends"][count]["address"]))
+                                logging.debug( 'Включили Апстрим ' + str(JSON_data["backends"][count]["address"]))
+                                logging.info(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|'+str(response_health_check.status_code)+'|Включаем апстрим')
                                 upstream_changed = upstream_changed + 1
                                 count =  count + 1
                                 upstream_status = upstream_status + 1
-                                logger.debug('Доступных Апстримов: ' + str(upstream_status))
+                                logging.debug('Доступных Апстримов: ' + str(upstream_status))
                             elif (response_health_check.status_code == 200) and (JSON_data["backends"][count]["down"] == False): # Если апстрим доступен, и не был выключен
-                                logger.info('Апстрим ' + str(JSON_data["backends"][count]["address"]) +' доступен и был включен, действий не требуется ')
+                                logging.debug('Апстрим ' + str(JSON_data["backends"][count]["address"]) +' доступен и был включен, действий не требуется ')
+                                logging.info(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|'+str(response_health_check.status_code)+'|Действий не требуется')
                                 count =  count + 1
                                 upstream_status = upstream_status + 1
-                                logger.info('Доступных Апстримов: '+ str(upstream_status))
+                                logging.debug('Доступных Апстримов: '+ str(upstream_status))
                             elif (response_health_check.status_code != 200) and (JSON_data["backends"][count]["down"] == False): # Если апстрим недоступен, и не был включен :
-                                logger.debug(str(response_health_check.content))
-                                logger.info('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]))
+                                logging.debug(str(response_health_check.content))
+                                logging.debug('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]))
                                 JSON_data["backends"][count]["down"] = 'True'
-                                logger.info('Меняем значение на: ' +JSON_data["backends"][count]["down"])
+                                logging.debug('Меняем значение на: ' +JSON_data["backends"][count]["down"])
+                                logging.error(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|'+str(response_health_check.status_code)+'|Выключаем апстрим')
                                 upstream_changed = upstream_changed + 1
                                 count =  count + 1
-                                print('Доступных Апстримов:', upstream_status)
-                                logger.info('Доступных Апстримов: '+ str(upstream_status))
+                                logging.info('Доступных Апстримов: '+ str(upstream_status))
                             else:
-                                logger.debug(str(response_health_check.content))
-                                logger.info('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]) + ' и не ответил на HealthCheck')
-                                logger.info('Доступных Апстримов: '+ str(upstream_status))
+                                logging.debug(str(response_health_check.content))
+                                logging.debug('Апстрим был выключен: ' + str(JSON_data["backends"][count]["down"]) + ' и не ответил на HealthCheck')
+                                logging.debug('Доступных Апстримов: '+ str(upstream_status))
+                                logging.warning(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|'+str(response_health_check.status_code)+'|Апстрим был выключен, Действий не требуется')
                                 count =  count + 1
                         #Ошибки при выполнении хелсчека
-                        except TimeoutError as error001:                            
-                            logger.error('HTTP_Health_check TimeoutError')
-                            logger.exception(error001)
-                        except urllib3.exceptions.ConnectTimeoutError as error002:                            
-                            logger.error('HTTP_Health_check urllib3.exceptions.ConnectTimeoutError')
-                            logger.exception(error002)
-                        except urllib3.exceptions.MaxRetryError as error003:                            
-                            logger.error('HTTP_Health_check urllib3.exceptions.ConnectTimeoutError')
-                            logger.exception(error003)
-                        except urllib3.exceptions.ConnectTimeoutError as error004:                            
-                            logger.error('HTTP_Health_check urllib3.exceptions.ConnectTimeoutError')
-                            logger.exception(error004)
                         except requests.exceptions.ConnectTimeout as error005:
                             count =  count + 1                            
-                            logger.critical('HTTP_Health_check upstream_protocol Отправка https трафика на порт ожидающий http')
-                            logger.exception(error005)
+                            logging.critical(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|false|Отправка https трафика на порт ожидающий http')
+                            logging.exception(traceback.format_exc())
                         except AttributeError as error006:                            
-                            logger.error('HTTP_Health_check проверь Headers которые отправляешь на апстрим ')
-                            logger.critical(error006)
+                            logging.critical(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|false|Некорректные заголовки для upstrams')
+                            logging.exception(traceback.format_exc())
                         except requests.exceptions.SSLError as error008:
-                            logger.critical('HTTP_Health_check Check variable upstream_protocol Отправка https трафика на порт ожидающий http')
-                            logger.exception(error008)
-                    else: #Если порт закрыт то
-                        logger.debug('UPSTREAM_NETWORK если порт закрыт то ')
-                        logger.warning('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Closed')
+                            logging.critical(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|ok|false|Отправка https трафика на порт ожидающий http')
+                            logging.exception(traceback.format_exc())
+                        except:
+                            logging.exception(traceback.format_exc())
+                    else: #Если порт апстрима закрыт то
+                        logging.debug('UPSTREAM_NETWORK если порт закрыт то ')
+                        logging.debug('UPSTREAM_NETWORK ' + str(JSON_data["backends"][count]["address"]) +':'+ str(JSON_data["backends"][count]["port"])+' Port is Closed')
                         if str(JSON_data["backends"][count]["down"]) == 'False' : # если был включен то выключить
-                            logger.debug('UPSTREAM_NETWORK порт апстрима закрыт но до проврки апстрим был включен')
-                            logger.info('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))
+                            logging.debug('UPSTREAM_NETWORK порт апстрима закрыт но до проврки апстрим был включен')
+                            logging.debug('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]))
                             JSON_data["backends"][count]["down"] = 'True'
-                            logger.info('UPSTREAM_NETWORK Меняем значение на:' +JSON_data["backends"][count]["down"])
+                            logging.debug('UPSTREAM_NETWORK Меняем значение на:' +JSON_data["backends"][count]["down"])
+                            logging.info(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|false|false|Выключаем апстрим')
                             upstream_changed = upstream_changed + 1
                             count =  count + 1
-                            logger.info('Доступных Апстримов: '+ str(upstream_status))
+                            logging.debug('Доступных Апстримов: '+ str(upstream_status))
                         else : #если был выключен то ничего не делаем
-                            logger.debug('UPSTREAM_NETWORK порт апстрима закрыт и до проверки был выключен')
-                            logger.info('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]) + ' Действие не требуется')
-                            logger.info('UPSTREAM_NETWORK Доступных Апстримов: '+ str(upstream_status))
+                            logging.debug('UPSTREAM_NETWORK порт апстрима закрыт и до проверки был выключен')
+                            logging.debug('UPSTREAM_NETWORK Апстрим выключен?: ' + str(JSON_data["backends"][count]["down"]) + ' Действие не требуется')
+                            logging.debug('UPSTREAM_NETWORK Доступных Апстримов: '+ str(upstream_status))
+                            logging.warning(str(id_upstreams) + '|' + str(JSON_data["backends"][count]["address"])+':'+ str(JSON_data["backends"][count]["port"]) +'|false|false|Действие не требуется')
                             count =  count + 1
                     sock.close()
                 if (upstream_status >= 1) and (upstream_changed >= 1) :    #Если после проверок включенных апстримов >= 1 и изменено больше одного апстрима то.
-                    logger.debug('Если после проверок включенных апстримов >= 1 и изменено больше одного апстрима то.')
-                    logger.warn('Доступных апстримов больше >= 1 :' + str(upstream_status) + ' Требуется изменить конфигурацию для' + str(upstream_changed))
+                    logging.warning(str(id_upstreams) + '|' + str(mgmt_ptaf) + 'Доступных апстримов:' + str(upstream_status) + ' Требуется изменить конфигурацию для:' + str(upstream_changed))
                     payload_ptaf = '{"backends":' + json.dumps(JSON_data["backends"]) + '}'
                     Upstream_Down = requests.request("PATCH", url_upstreams, headers=headers_ptaf, data=payload_ptaf, verify=False)
-                    if  Upstream_Down.status_code == 200:
-                        logger.info('Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code))
-                        resp_code = str(Upstream_Down.content)
-                        logger.debug('ответ от WAF:' + resp_code)
+                    if  Upstream_Down.status_code == 200: # При отправке конфига на PTAF получили код 200
+                        logging.debug('Настройки применены код ответа от WAF:' + str(Upstream_Down.status_code))
+                        logging.info(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+ str(Upstream_Down.status_code) +'|Настройки применены')
+                        #resp_code = str(Upstream_Down.content)
+                        #logging.debug('ответ от WAF:' + resp_code)
                     else:
-                        logger.error('Настройки не применены из за ошибки')
-                        logger.error('ответ от WAF:'+ str(Upstream_Down.status_code) +' '+ str(Upstream_Down.content))
-                elif (upstream_status >= 1) and (upstream_changed == 0 ) :
-                    logger.info('Апстримов доступно ' + str(upstream_status) + ' изменений нет')
+                        logging.error(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+ str(Upstream_Down.status_code) +'|Настройки не применены из-за ошибки')
+                        logging.debug('ответ от WAF:'+ str(Upstream_Down.content))
+                elif (upstream_status >= 1) and (upstream_changed == 0 ) : # есть доступные апстримы и нет изменений в конфиге                    
+                    logging.info(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|200|Есть доступные апстримы и нет изменений в конфиге')
+                    logging.debug('Апстримов доступно ' + str(upstream_status) + ' изменений нет')
                 else:    #Если после проверок включенных апстримов 0
-                    logger.critical('Нет доступных Апстримов, настройки не применены')
+                    logging.debug('Нет доступных Апстримов, настройки не применены')
+                    logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|false|Нет доступных Апстримов, настройки не применены')
+        elif response_upstream.status_code == 404: #код ответа при запросе апстримов не 200
+            logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+str(response_upstream.status_code)+'|Проверь URL для подключения к mgmt')
+            logging.debug(str(response_upstream.text))
         else: #код ответа при запросе апстримов не 200
-            logger.error('Проверь headers_ptaf или логин\пароль для подключения к mgmt '+'Код ответа: '+str(response_upstream.status_code))
-            logger.error(str(response_upstream.text))
-    except TimeoutError as error011:
-        logger.critical('PTAF_JSON TimeoutError')
-        logger.exception(error011)
-    except urllib3.exceptions.ConnectTimeoutError as error012:
-        logger.critical('PTAF_JSON urllib3.exceptions.ConnectTimeoutError')
-        logger.exception(error012)
-    except urllib3.exceptions.MaxRetryError as error013:
-        logger.critical('PTAF_JSON urllib3.exceptions.MaxRetryError')
-        logger.exception(error013)
-    except urllib3.exceptions.ConnectTimeoutError as error014:
-        logger.critical('PTAF_JSON urllib3.exceptions.ConnectTimeoutError')
-        logger.exception(error014)
+            logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|'+str(response_upstream.status_code)+'|Проверь headers_ptaf или логин\пароль для подключения к mgmt')
+            logging.debug(str(response_upstream.text))
+    # Ошибки при выгрузке JSON
     except requests.exceptions.ConnectTimeout as error015:
-        logger.critical('PTAF_JSON mgmt порт закрыт, невозможно извлечь конфиг upstreams')
-        logger.exception(error015)
+        logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|false|false|mgmt порт закрыт, невозможно извлечь конфиг upstreams')
+        logging.exception(traceback.format_exc())
     except KeyError as error016:
-        logger.critical('PTAF_JSON Ошибка в кредах, проверь значение переменной headers_ptaf')
-        logger.exception(error016)
-#    except InsecureRequestWarning as error017:
-#        logger.critical('PTAF_JSON Неудалось проверить сертификат?')
-#        logger.exception(error017)
-
-
+        logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|false|Ошибка в кредах, проверь значение переменной headers_ptaf')
+        logging.exception(traceback.format_exc())
+    except requests.exceptions.InvalidSchema as error016:
+        logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|ok|false|Ошибка в url, проверь значение переменной url_upstreams')
+        logging.exception(traceback.format_exc())
+    except:
+        logging.exception(traceback.format_exc())
 else:   #Порт mgmt недоступен 
-    logger.critical('PTAF_NETWORK' + str(ip_mgmt) +' Порт MGMT закрыт, проверь в чем дело')
+    logging.critical(str(id_upstreams) + '|' + str(mgmt_ptaf) +'|close|fall|Порт MGMT закрыт, проверь в чем дело')
