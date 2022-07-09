@@ -40,6 +40,8 @@
 
 - `headers_health_check = { "User-Agent": "HealthChecker_PTAF", "Host": healthcheck_host }` - заголовки передаваемые на апстрим при HealthCheck
 
+- `test_mode = True|False` - если True конфиг не меняется, если False при изменении конфига вносятся изменения через API
+
 # Выполнение по рассписанию
 crontab
 
